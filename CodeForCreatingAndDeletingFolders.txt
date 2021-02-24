@@ -1,0 +1,124 @@
+import mysql.connector
+
+connector = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    password='test',
+    database='db2')
+
+action = connector.cursor()
+q = []
+
+
+def generateRootNode():
+    name = "Root"
+    values = (name, 0)
+    setIdFromZero = "SET @@LOCAL.sql_mode = 'NO_AUTO_VALUE_ON_ZERO'"
+    action.execute(setIdFromZero)
+    safe_delete = "SET SQL_SAFE_UPDATES = 0"
+    action.execute(safe_delete)
+    sqlCode = "INSERT INTO folder(name,id) VALUES (%s,%s)"
+    action.execute(sqlCode, values)
+    connector.commit()
+
+
+def addElement():
+    name = input("Input Name Here: ")
+    checkIfEmpty = "Select id from folder order by id DESC LIMIT 1;"
+    action.execute(checkIfEmpty)
+    checking = action.fetchone()
+    print(checking)
+    if (checking[0]) == 0:
+        sqlString = "INSERT INTO folder(name,parent) VALUES (%s,%s)"
+        vals = (name, 0)
+        action.execute(sqlString, vals)
+        connector.commit()
+
+    else:
+        parent = input("Please specify the parent of the folder: ")
+        checkIfParentExists = "Select id from folder where name = (%s)"
+        action.execute(checkIfParentExists, (parent,))
+        printValue = action.fetchone()
+        if not printValue:
+            print("You are referencing to a parent that does not exist")
+        else:
+            printValue = printValue[0]
+            StringtoExecute = "INSERT INTO folder (name,parent) VALUES (%s,%s)"
+            vals = (name, printValue)
+            action.execute(StringtoExecute, vals)
+            connector.commit()
+
+
+def deleteElement(idOfNode):
+    scriptToExecute = "Select * from folder where parent = (%s)"
+    action.execute(scriptToExecute, (idOfNode,))
+    retrieve = (action.fetchall())
+    print(retrieve)
+    if not retrieve:
+        print("List is empty")
+    else:
+        q.append(idOfNode)
+        for row in retrieve:
+            print(row[0])
+            q.append(row[0])
+            deleteElement(row[0])
+
+
+def delete_Node():
+    nodeForDeletion = input("Select node for deletion: ")
+    if nodeForDeletion == '0':
+        print("You cannot delete the Root Node")
+
+    else:
+        deleteElement(nodeForDeletion)
+        Execute_Node_Deletion()
+
+
+def Execute_Node_Deletion():
+    sqlCode = "delete from folder where id = (%s)"
+    for x in range(len(q)):
+        val = q.pop()
+        action.execute(sqlCode, (val,))
+        connector.commit()
+
+
+def checkIfThereIsRoot():
+    sqlCode = "Select * from folder where name = 'Root'"
+    action.execute(sqlCode)
+    rootIsCreated = action.fetchone()
+    print(rootIsCreated)
+    if not rootIsCreated:
+        return True
+    else:
+        return False
+
+
+def executeFolderProgram():
+    if checkIfThereIsRoot():
+        generateRootNode()
+        addElement()
+    else:
+        print("Please Select what option do you want to do:")
+        print("1: Create a new folder")
+        print("2: Delete an existing folder")
+        print("4: Stop The Program")
+        do = input("Select the action:")
+        while do != '4':
+            if do == '1':
+                addElement()
+            elif do == '2':
+                delete_Node()
+            elif do == '4':
+                break
+            print("Please Select what option do you want to do:")
+            print("1: Create a new folder")
+            print("2: Delete an existing folder")
+            print("4: Stop The Program")
+            do = input("Select the action:")
+
+
+def main():
+    executeFolderProgram()
+
+
+main()
